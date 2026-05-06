@@ -3180,8 +3180,12 @@ function saveSettingsToStorage() {
 
 // Get the effective dbUrl for the active profile
 function activeDbUrl() {
+  const DEFAULT_CH_URL = 'https://raw.githubusercontent.com/boutibachir-web/uniconverter/main/database.-CH.xlsx';
   const id = S.selectedProfile?.id || 'CH';
-  return (S.profileSettings[id] || {}).dbUrl || '';
+  const saved = (S.profileSettings[id] || {}).dbUrl || '';
+  if (saved) return saved;
+  if (id === 'CH') return DEFAULT_CH_URL;
+  return '';
 }
 
 function openSettings() {
@@ -3371,7 +3375,7 @@ function onHsToggle() {
 // openHsModal override: skip if DB already loaded
 const _origOpenHsModal = openHsModal;
 function openHsModal(cb) {
-  if (S.hsDb && (S.hsBU !== undefined)) { if (cb) cb(); return; }
+  if (S.hsDb && S.hsBU) { if (cb) cb(); return; }
   _origOpenHsModal(cb);
 }
 
