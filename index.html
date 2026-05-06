@@ -2040,17 +2040,18 @@ function openHsModal(cb) {
 function submitHs(apply) {
   if (!apply) { document.getElementById('modal-hs').classList.remove('open'); return; }
   clearErr('hs');
-  if (!S._hsPending) { showErr('hs', 'Please load a reference file.'); return; }
+  if (!S._hsPending && !S.hsDb) { showErr('hs', 'Please load a reference file.'); return; }
   const bu = document.getElementById('hs-bu-input').value.trim();
   if (!bu) { showErr('hs', 'Please enter a Customer BU.'); return; }
   try {
-    S.hsDb = parseHsDb(S._hsPending);
+    if (S._hsPending) S.hsDb = parseHsDb(S._hsPending);
     S.hsBU = bu;
     if (!S.hsDb.has(bu)) {
       const allBUs = [...S.hsDb.keys()].slice(0, 5).join(', ');
       showErr('hs', `BU "${bu}" not found. Available: ${allBUs}…`);
       return;
     }
+    document.getElementById('hs-dz').style.display = '';
     document.getElementById('modal-hs').classList.remove('open');
     if (S._onHsConfirm) S._onHsConfirm();
   } catch(e) { showErr('hs', e.message); }
@@ -3372,10 +3373,24 @@ function onHsToggle() {
   if (!S.hsEnabled && !activeDbUrl()) { S.hsDb = null; S.hsBU = ''; }
 }
 
-// openHsModal override: skip if DB already loaded
+// openHsModal override: skip if DB already loaded AND BU is set
 const _origOpenHsModal = openHsModal;
 function openHsModal(cb) {
   if (S.hsDb && S.hsBU) { if (cb) cb(); return; }
+  // DB loaded from URL but no BU yet: show modal in BU-only mode
+  if (S.hsDb && !S.hsBU) {
+    document.getElementById('hs-dz').style.display = 'none';
+    document.getElementById('hs-bu-input').value = '';
+    document.getElementById('hs-dz-t').textContent = 'Database loaded from URL';
+    document.getElementById('hs-dz-s').textContent = 'Enter your Customer BU below';
+    document.getElementById('hs-ok').style.display = 'block';
+    document.getElementById('hs-ok').textContent = 'Ready';
+    clearErr('hs');
+    document.getElementById('modal-hs').classList.add('open');
+    S._onHsConfirm = cb;
+    S._hsPending = null;
+    return;
+  }
   _origOpenHsModal(cb);
 }
 
