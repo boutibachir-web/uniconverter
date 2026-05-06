@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LINEDROP Converter</title>
+<title>Uniconverter Converter</title>
 <!-- SheetJS: used to read/parse Excel and CSV files -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- ExcelJS: used to write formatted Excel output (fills, column widths, etc.) -->
@@ -403,7 +403,7 @@ body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'SF Pro T
 
 <!-- ═══ HEADER ══════════════════════════════════════════════════════════════ -->
 <header class="hdr">
-  <div class="wordmark">Universal Converter <span class="badge-ld">LINEDROP</span></div>
+  <div class="wordmark">Uniconverter <span class="badge-ld">LINEDROP</span></div>
   <div style="display:flex;align-items:center;gap:10px">
     <!-- Country pill — shows current selected profile, click to change -->
     <div id="country-pill-wrap">
@@ -3370,21 +3370,23 @@ async function autoLoadDbFromSettings() {
 // onHsToggle: only wipe DB if it was manually loaded (no settings URL)
 function onHsToggle() {
   S.hsEnabled = document.getElementById('hs-toggle').checked;
-  if (!S.hsEnabled && !activeDbUrl()) { S.hsDb = null; S.hsBU = ''; }
+  // Always clear BU when toggle changes — BU must be re-entered every time
+  S.hsBU = '';
+  if (!S.hsEnabled && !activeDbUrl()) { S.hsDb = null; }
 }
 
-// openHsModal override: skip if DB already loaded AND BU is set
+// openHsModal override: if DB loaded from URL, show BU-only modal (always ask BU)
 const _origOpenHsModal = openHsModal;
 function openHsModal(cb) {
-  if (S.hsDb && S.hsBU) { if (cb) cb(); return; }
-  // DB loaded from URL but no BU yet: show modal in BU-only mode
-  if (S.hsDb && !S.hsBU) {
+  if (S.hsDb) {
+    // Always ask for BU — never skip, never cache
+    S.hsBU = '';
     document.getElementById('hs-dz').style.display = 'none';
-    document.getElementById('hs-bu-input').value = '';
     document.getElementById('hs-dz-t').textContent = 'Database loaded from URL';
     document.getElementById('hs-dz-s').textContent = 'Enter your Customer BU below';
     document.getElementById('hs-ok').style.display = 'block';
-    document.getElementById('hs-ok').textContent = 'Ready';
+    document.getElementById('hs-ok').textContent = '✓ Ready';
+    document.getElementById('hs-bu-input').value = '';
     clearErr('hs');
     document.getElementById('modal-hs').classList.add('open');
     S._onHsConfirm = cb;
