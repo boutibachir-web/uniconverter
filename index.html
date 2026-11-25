@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Uniconverter Converter</title>
+<link rel="icon" href="data:,">
 <!-- SheetJS: used to read/parse Excel and CSV files -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- ExcelJS: used to write formatted Excel output (fills, column widths, etc.) -->
@@ -505,6 +506,7 @@ body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'SF Pro T
     </div>
   </div>
 
+  <div id="edit-grid-note" style="display:none;font-size:12px;color:var(--muted);margin:0 0 8px"></div>
   <div id="grid-wrap">
     <table id="edit-table">
       <thead id="edit-thead"></thead>
@@ -1255,6 +1257,19 @@ function cleanHeaderName(v) {
 // Returns true if a cell value looks like an Excel formula (starts with "=")
 function isFormula(v) { return typeof v === 'string' && v.startsWith('='); }
 
+// True for 10, 10.5, 1200,50, 1.234,56 and 1,234.56. Used when guessing which
+// row is the header so a comma decimal is not mistaken for text.
+function looksLikeNumber(c) {
+  if (c === null || c === undefined || c === '') return false;
+  if (typeof c === 'number') return isFinite(c);
+  const s = String(c).trim().replace(/\s/g, '');
+  if (!s || /[a-zA-Z]/.test(s)) return false;
+  if (!isNaN(Number(s)) && isFinite(Number(s))) return true;
+  return /^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)
+    || /^-?\d+,\d+$/.test(s)
+    || /^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s);
+}
+
 // Heuristically finds the header row index in a 2D array of raw cell values.
 // Scores each candidate row by: number of string cells, uniqueness, and avg label length.
 function detectHeaderRow(raw) {
@@ -1272,15 +1287,16 @@ function detectHeaderRow(raw) {
     const score = strs.length * 2 + ne.length * 0.5 + (uniq / Math.max(ne.length, 1)) * 2 + lenBonus;
     if (score > bestScore) { bestScore = score; bestIdx = i; }
   }
-  // FIX: skip multiline header continuation rows (SheetJS naive split)
+  // Skip a wrapped header line (SheetJS splits a newline inside a header cell
+  // into the next row). Stop as soon as the next row looks like data, including
+  // European amounts such as 1.234,56 which Number() does not accept.
   while (bestIdx + 1 < raw.length) {
     const nextRow = raw[bestIdx + 1] || [];
-    const hasNum = nextRow.some(c => {
-      if (c === null || c === undefined || c === '') return false;
-      const n = Number(String(c).trim().replace(',', '.'));
-      return !isNaN(n) && isFinite(n) && String(c).trim().length > 0;
-    });
-    if (hasNum) break;
+    if (nextRow.some(looksLikeNumber)) break;
+    const filled = nextRow.filter(c => c != null && String(c).trim() !== '');
+    // Keep the header when the next row is empty or is a full data row.
+    // Only step forward for a single leftover fragment from a wrapped header cell.
+    if (filled.length === 0 || filled.length >= 2) break;
     bestIdx++;
   }
   return bestIdx;
@@ -1315,12 +1331,30 @@ function defaultSheet(ab) {
 // Parses a single file into { headers, rows, previewRows, sheetName }.
 // Used for regular (non-consignment) mode to build the mapping UI.
 function parseFile(ab, fileName, forcedSheet) {
+  const ext = (fileName || '').split('.').pop().toLowerCase();
+  // CSV is decoded as UTF-8 (Windows-1252 if those bytes are not UTF-8) and
+  // kept as text. SheetJS would read the bytes as Latin-1 and would turn a
+  // comma decimal such as 1.234,56 into the wrong number.
+  if (ext === 'csv') return parseCsvSource(ab, fileName);
   const wb = XLSX.read(ab, { type:'array', cellDates:false });
   let sn = forcedSheet || defaultSheet(ab);
   if (!wb.SheetNames.includes(sn)) sn = wb.SheetNames[0];
   const ws = wb.Sheets[sn];
   const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
-  if (!raw.length) throw new Error(`"${fileName}" is empty.`);
+  return matrixToFile(raw, sn);
+}
+function parseCsvSource(ab, fileName) {
+  const bytes = ab instanceof Uint8Array ? ab : new Uint8Array(ab);
+  let text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+  catch { text = new TextDecoder('windows-1252').decode(bytes); }
+  text = text.replace(/^\uFEFF/, '');
+  const sep = detectSeparator(text);
+  const raw = parseCsvMatrix(text, sep).map(row => row.map(c => (c === '' ? null : c)));
+  return matrixToFile(raw, 'CSV');
+}
+function matrixToFile(raw, sn) {
+  if (!raw.length) throw new Error(`"${sn}" is empty.`);
   const hi = detectHeaderRow(raw);
   const rawHdr = raw[hi] || [];
   // Find the rightmost non-empty header column
@@ -1601,7 +1635,15 @@ function bestProfile(headers) {
   const fileExt  = (file?.name || '').split('.').pop().toLowerCase();
   const filePat  = fileNamePattern(file?.name || '');
   const hNorms   = headers.map(norm);
+  const activeId = activeProfile().id;
   for (const p of ps) {
+    // Column mappings are tied to the output format they were saved for.
+    // Older profiles have no id and still apply to the built-in CH/DE flows.
+    if (p.outputProfileId) {
+      if (p.outputProfileId !== activeId) continue;
+    } else if (isCustomProfile(activeProfile())) {
+      continue;
+    }
     if (p.ext && p.ext !== fileExt) continue;
     if (p.filePat && p.filePat !== filePat) continue;
     if (p.headers && p.headers.length) {
@@ -1628,7 +1670,8 @@ function saveProfile(name) {
     headers: [...headers],
     ext: (file?.name || '').split('.').pop().toLowerCase(),
     filePat: fileNamePattern(file?.name || ''),
-    sheetName: S.selectedSheet || file?.sheetName || null
+    sheetName: S.selectedSheet || file?.sheetName || null,
+    outputProfileId: activeProfile().id
   });
   storeProfiles(ps.slice(0, 25));
 }
@@ -4129,6 +4172,16 @@ function showEditPhase(){
       _renderHeader();
       _renderBody();
       _renderTotals();
+      const gridNote = document.getElementById('edit-grid-note');
+      if (gridNote) {
+        if (GS.isCustom && GS.rowData.length > CUSTOM_GRID_CAP) {
+          gridNote.style.display = '';
+          gridNote.textContent = `Showing the first ${CUSTOM_GRID_CAP} of ${GS.rowData.length} rows. Download includes every row.`;
+        } else {
+          gridNote.style.display = 'none';
+          gridNote.textContent = '';
+        }
+      }
       _refreshUndoRedo();
       _refreshAuditLog();
       // Pre-fill Kundenreferenz field
@@ -4228,7 +4281,8 @@ function _renderBody(){
   const tbody=document.getElementById('edit-tbody');
   tbody.innerHTML='';
   const sorted=_sortedRows();
-  sorted.forEach((rd,idx)=>{
+  const visible = (GS.isCustom && sorted.length > CUSTOM_GRID_CAP) ? sorted.slice(0, CUSTOM_GRID_CAP) : sorted;
+  visible.forEach((rd,idx)=>{
     const tr=_makeRowEl(rd);
     const tdLn=document.createElement('td'); tdLn.className='td-ln'; tdLn.textContent=idx+1;
     tr.insertBefore(tdLn,tr.firstChild);
@@ -5257,9 +5311,9 @@ const FIXED_SOURCE = '__fixed__';
 const SOURCE_FIELDS = [
   { k:'Tarifnummer', s:'HS code', syn:['tarifnummer','warennr','hs code','hs','commodity code','customs code','tariff','tariff number','zollnummer','cn code','taric','customs tariff'] },
   { k:'Artikelnummer', s:'Article no.', syn:['artikelnummer','artikelnr','article number','article no','article','sku','item number','item no','product number','product no','art nr','art-nr'] },
-  { k:'Warenbeschreibung', s:'Description', syn:['warenbeschreibung','warenbezeichnung','description','goods description','article description','bezeichnung','product name','desc'] },
-  { k:'Ursprung', s:'Origin', syn:['ursprung','ursprungsland','country of origin','origin','coo','herkunft','herkunftsland','pays origine'] },
-  { k:'Rechnungsbetrag', s:'Amount', syn:['rechnungsbetrag','preis','price','total price','invoice amount','net amount','amount','value','betrag','customs value','net value'] },
+  { k:'Warenbeschreibung', s:'Description', syn:['warenbeschreibung','warenbezeichnung','description','goods description','article description','bezeichnung','product name','desc','designation','désignation'] },
+  { k:'Ursprung', s:'Origin', syn:['ursprung','ursprungsland','country of origin','origin','coo','herkunft','herkunftsland','pays origine','origine'] },
+  { k:'Rechnungsbetrag', s:'Amount', syn:['rechnungsbetrag','preis','price','total price','invoice amount','net amount','amount','value','betrag','customs value','net value','montant'] },
   { k:'Währung', s:'Currency', syn:['währung','waehrung','currency','currency code','curr','devise'] },
   { k:'Rohmasse', s:'Gross weight', syn:['rohmasse','gross weight','gross mass','bruttogewicht','bruttomasse','poids brut'] },
   { k:'Eigenmasse', s:'Net weight', syn:['eigenmasse','net weight','net mass','nettogewicht','nettomasse','poids net'] },
@@ -5272,6 +5326,8 @@ const SOURCE_FIELDS = [
 ];
 const NUM_SOURCE_FIELDS = new Set(['Rechnungsbetrag','Rohmasse','Eigenmasse','Menge','Stat.Zusatz','Anzahl']);
 const TEXT_SOURCE_FIELDS = new Set(['Tarifnummer','Artikelnummer','Invoice No']);
+const CUSTOM_GRID_CAP = 400;
+const MAX_TEMPLATE_COLS = 200;
 
 let _opDraft = null;
 
@@ -5306,12 +5362,17 @@ function customProfileFields(p) {
   return out;
 }
 
+// Accent-insensitive form of norm(), used only to suggest a mapping.
+// Output values keep their original accents.
+function fold(s) {
+  return norm(String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+}
 function matchSourceField(columnName) {
-  const n = norm(columnName);
+  const n = fold(columnName);
   if (!n) return '';
   for (const f of SOURCE_FIELDS) {
-    if (norm(f.k) === n || norm(f.s) === n) return f.k;
-    if ((f.syn || []).some(s => norm(s) === n)) return f.k;
+    if (fold(f.k) === n || fold(f.s) === n) return f.k;
+    if ((f.syn || []).some(s => fold(s) === n)) return f.k;
   }
   return '';
 }
@@ -5323,7 +5384,7 @@ function autoMapSourceFields(headers, fields) {
     let idx = -1;
     headers.forEach((h, i) => {
       if (used.has(i) || idx >= 0) return;
-      if (matchSourceField(h) === f.k || norm(h) === norm(f.k) || norm(h) === norm(f.s)) idx = i;
+      if (matchSourceField(h) === f.k || fold(h) === fold(f.k) || fold(h) === fold(f.s)) idx = i;
     });
     if (idx >= 0) {
       used.add(idx);
@@ -5553,6 +5614,7 @@ function saveOutputProfileFromUI() {
     rowTag: _opDraft.rowTag || '',
     xmlMode: _opDraft.xmlMode || '',
     jsonWrapper: _opDraft.jsonWrapper || '',
+    jsonPath: Array.isArray(_opDraft.jsonPath) ? _opDraft.jsonPath : [],
     columns,
     updatedAt: new Date().toISOString(),
   };
@@ -5577,6 +5639,7 @@ function editOutputProfile(id) {
     rowTag: p.rowTag,
     xmlMode: p.xmlMode,
     jsonWrapper: p.jsonWrapper,
+    jsonPath: Array.isArray(p.jsonPath) ? p.jsonPath : [],
     fileName: p.name,
     columns: (p.columns || []).map(c => ({
       name: c.name,
@@ -5597,11 +5660,15 @@ function deleteCustomProfile(id) {
   if (!p) return;
   if (!confirm(`Delete “${p.name}”? Files already exported are not affected.`)) return;
   storeCustomProfiles(loadCustomProfiles().filter(x => x.id !== id));
-  if (S.selectedProfile && S.selectedProfile.id === id) {
+  const wasSelected = S.selectedProfile && S.selectedProfile.id === id;
+  if (wasSelected) {
     S.selectedProfile = null;
     try { localStorage.removeItem(PROFILE_KEY); } catch {}
     updateCountryPill();
     updateUploadHint();
+    // Don't leave the converter running with no profile: it would silently
+    // fall back to the Switzerland format.
+    showPhase('country');
   }
   renderCustomProfileList();
   renderCountryGrid(S.selectedProfile && S.selectedProfile.id);
@@ -5621,6 +5688,7 @@ function exportCustomProfile(id) {
     rowTag: p.rowTag || '',
     xmlMode: p.xmlMode || '',
     jsonWrapper: p.jsonWrapper || '',
+    jsonPath: Array.isArray(p.jsonPath) ? p.jsonPath : [],
     columns: p.columns,
   };
   triggerDownload(slug(p.name) + '.output-profile.json', JSON.stringify(file, null, 2), 'application/json');
@@ -5630,7 +5698,9 @@ function importOutputProfileFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const data = JSON.parse(String(reader.result || ''));
+      let data;
+      try { data = JSON.parse(String(reader.result || '')); }
+      catch { throw new Error('This file is not an output profile.'); }
       const profile = profileFromFile(data);
       const list = loadCustomProfiles();
       list.unshift(profile);
@@ -5645,12 +5715,15 @@ function importOutputProfileFile(file) {
   reader.readAsText(file);
 }
 function profileFromFile(data) {
-  if (!data || data.kind !== PROFILE_FILE_KIND || !Array.isArray(data.columns) || !data.columns.length) {
+  if (!data || typeof data !== 'object' || Array.isArray(data) || data.kind !== PROFILE_FILE_KIND || !Array.isArray(data.columns) || !data.columns.length) {
     throw new Error('This file is not an output profile.');
+  }
+  if (data.columns.length > MAX_TEMPLATE_COLS) {
+    throw new Error(`This profile has ${data.columns.length} columns. A profile can use up to ${MAX_TEMPLATE_COLS}.`);
   }
   const format = ['csv','xlsx','json','xml'].includes(data.format) ? data.format : '';
   if (!format) throw new Error('This profile has no file format.');
-  const name = String(data.name || '').trim();
+  const name = String(data.name || '').trim().slice(0, 200);
   if (!name) throw new Error('This profile has no name.');
   const known = new Set(SOURCE_FIELDS.map(f => f.k));
   const columns = data.columns.map((c, i) => {
@@ -5669,6 +5742,7 @@ function profileFromFile(data) {
     rowTag: data.rowTag || '',
     xmlMode: data.xmlMode || '',
     jsonWrapper: data.jsonWrapper || '',
+    jsonPath: Array.isArray(data.jsonPath) ? data.jsonPath.map(k => String(k)).slice(0, 8) : [],
     columns,
     updatedAt: new Date().toISOString(),
   };
@@ -5699,20 +5773,43 @@ function uniqueColumnNames(names) {
     return c === 1 ? base : `${base} (${c})`;
   });
 }
-function columnsFromMatrix(raw) {
-  if (!raw || !raw.length) throw new Error('This file looks empty.');
-  const wide = raw.some(r => (r || []).filter(c => c != null && String(c).trim() !== '').length >= 2);
-  const hi = wide ? detectHeaderRow(raw) : 0;
-  const hdr = raw[hi] || [];
+// Header row for a template. Unlike detectHeaderRow(), this does not walk
+// forward through text-only rows — a sample row of names and places is data,
+// not a second header line.
+function templateHeaderIndex(raw) {
+  let bestIdx = 0, bestScore = -1;
+  const limit = Math.min(30, raw.length);
+  for (let i = 0; i < limit; i++) {
+    const row = raw[i] || [];
+    const ne = row.filter(c => c != null && String(c).trim() !== '' && !isFormula(c));
+    if (!ne.length) continue;
+    const strs = ne.filter(c => isNaN(Number(String(c).trim())));
+    if (!strs.length) continue;
+    const uniq = new Set(strs.map(c => String(c).trim().toLowerCase())).size;
+    const avgLen = strs.reduce((s, c) => s + String(c).length, 0) / strs.length;
+    const lenBonus = avgLen > 1 && avgLen < 40 ? 2 : 0;
+    const score = strs.length * 3 + uniq * 2 + lenBonus;
+    if (score > bestScore) { bestScore = score; bestIdx = i; }
+  }
+  return bestIdx;
+}
+function namesFromHeaderRow(hdr) {
   let last = -1;
-  hdr.forEach((c, i) => { if (cleanHeaderName(c || '')) last = i; });
+  (hdr || []).forEach((c, i) => { if (cleanHeaderName(c || '')) last = i; });
   if (last < 0) throw new Error('No column names found. Put the headers in the first row.');
   const names = [];
   for (let i = 0; i <= last; i++) {
     const h = cleanHeaderName(hdr[i] || '');
     names.push(h || `Column ${i + 1}`);
   }
+  if (names.length > MAX_TEMPLATE_COLS) {
+    throw new Error(`This template has ${names.length} columns. A profile can use up to ${MAX_TEMPLATE_COLS}.`);
+  }
   return uniqueColumnNames(names);
+}
+function columnsFromMatrix(raw) {
+  if (!raw || !raw.length) throw new Error('This file looks empty.');
+  return namesFromHeaderRow(raw[templateHeaderIndex(raw)] || []);
 }
 function detectSeparator(text) {
   const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim()).slice(0, 8);
@@ -5770,32 +5867,72 @@ async function readTemplateFile(file) {
     return { format: 'csv', separator, columns, sheetName: '', sheets: [] };
   }
   const ab = await file.arrayBuffer();
-  const wb = XLSX.read(ab, { type:'array', cellDates:false });
+  // Copy the bytes. SheetJS can detach the buffer it is given, and the user
+  // may switch sheets afterwards.
+  const bytes = new Uint8Array(ab).slice();
+  const wb = XLSX.read(bytes, { type:'array', cellDates:false });
   if (!wb.SheetNames.length) throw new Error('This workbook has no sheets.');
-  const sheetName = wb.SheetNames[0];
+  const sheetColumns = {};
+  wb.SheetNames.forEach(name => {
+    try { sheetColumns[name] = columnsFromSheet(wb, name); }
+    catch { sheetColumns[name] = []; }
+  });
+  const ranked = wb.SheetNames
+    .map(name => ({ name, n: (sheetColumns[name] || []).length }))
+    .sort((a, b) => b.n - a.n);
+  if (!ranked.length || !ranked[0].n) throw new Error('No column names found. Put the headers in the first row.');
+  const sheetName = ranked[0].name;
   return {
     format: 'xlsx',
     separator: ';',
     sheetName,
     sheets: wb.SheetNames.slice(),
-    arrayBuffer: ab,
-    columns: columnsFromSheet(wb, sheetName),
+    sheetColumns,
+    columns: sheetColumns[sheetName],
   };
 }
 function columnsFromSheet(wb, sheetName) {
   const ws = wb.Sheets[sheetName] || wb.Sheets[wb.SheetNames[0]];
+  if (!ws) throw new Error('That sheet is empty.');
   const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
-  return columnsFromMatrix(raw);
+  if (!raw.length) throw new Error('That sheet is empty.');
+  const hi = templateHeaderIndex(raw);
+  const hdr = (raw[hi] || []).slice();
+  // A merged header stores its text in the first cell only. Copy that text
+  // into the covered cells of the header row so those columns keep a name.
+  (ws['!merges'] || []).forEach(m => {
+    if (!m || !m.s || !m.e || m.s.r > hi || m.e.r < hi) return;
+    const origin = (raw[m.s.r] || [])[m.s.c];
+    if (origin == null || String(origin).trim() === '') return;
+    for (let c = m.s.c; c <= m.e.c; c++) {
+      if (hdr[c] == null || String(hdr[c]).trim() === '') hdr[c] = origin;
+    }
+  });
+  return namesFromHeaderRow(hdr);
+}
+function findJsonRows(node, path) {
+  if (Array.isArray(node)) {
+    if (node.length && node[0] && typeof node[0] === 'object' && !Array.isArray(node[0])) return { rows: node, path };
+    return null;
+  }
+  if (node && typeof node === 'object') {
+    for (const key of Object.keys(node)) {
+      const found = findJsonRows(node[key], path.concat(key));
+      if (found) return found;
+    }
+  }
+  return null;
 }
 function parseJsonTemplate(text) {
   let data;
   try { data = JSON.parse(text); }
   catch { throw new Error('This JSON file could not be read.'); }
-  let rows = null, jsonWrapper = '';
-  if (Array.isArray(data)) rows = data;
-  else if (data && typeof data === 'object') {
-    const key = Object.keys(data).find(k => Array.isArray(data[k]) && data[k][0] && typeof data[k][0] === 'object');
-    if (key) { rows = data[key]; jsonWrapper = key; }
+  let rows = null, jsonPath = [];
+  if (Array.isArray(data)) {
+    if (data.length && data[0] && typeof data[0] === 'object' && !Array.isArray(data[0])) rows = data;
+  } else if (data && typeof data === 'object') {
+    const found = findJsonRows(data, []);
+    if (found) { rows = found.rows; jsonPath = found.path; }
     else rows = [data];
   }
   if (!rows || !rows.length || typeof rows[0] !== 'object' || Array.isArray(rows[0])) {
@@ -5803,7 +5940,15 @@ function parseJsonTemplate(text) {
   }
   const columns = uniqueColumnNames(Object.keys(rows[0]).filter(Boolean));
   if (!columns.length) throw new Error('No fields found in this JSON.');
-  return { format:'json', separator:';', columns, sheetName:'', sheets:[], jsonWrapper, rootTag:'', rowTag:'' };
+  if (columns.length > MAX_TEMPLATE_COLS) {
+    throw new Error(`This template has ${columns.length} fields. A profile can use up to ${MAX_TEMPLATE_COLS}.`);
+  }
+  return {
+    format:'json', separator:';', columns, sheetName:'', sheets:[],
+    jsonWrapper: jsonPath.length === 1 ? jsonPath[0] : '',
+    jsonPath,
+    rootTag:'', rowTag:'',
+  };
 }
 function parseXmlTemplate(text) {
   const doc = new DOMParser().parseFromString(text, 'application/xml');
@@ -5833,7 +5978,10 @@ function parseXmlTemplate(text) {
   if (!best) throw new Error('No rows found in this XML. Use one element per line, with a tag per column.');
   const names = best.mode === 'children'
     ? [...best.el.children].map(c => c.localName || c.nodeName)
-    : [...best.el.attributes].map(a => a.name);
+    : [...best.el.attributes].filter(a => {
+        const n = (a.localName || a.name || '').toLowerCase();
+        return n && n !== 'xmlns' && a.prefix !== 'xmlns';
+      }).map(a => a.localName || a.name);
   const columns = uniqueColumnNames(names.filter(Boolean));
   if (!columns.length) throw new Error('No fields found in this XML.');
   const parent = best.el.parentElement;
@@ -5875,30 +6023,51 @@ async function onTemplatePicked(file) {
   }
 }
 function reloadTemplateSheet(sheetName) {
-  if (!_opDraft || !_opDraft.arrayBuffer) return;
-  try {
-    const wb = XLSX.read(_opDraft.arrayBuffer, { type:'array', cellDates:false });
-    const columns = columnsFromSheet(wb, sheetName);
-    _opDraft.sheetName = sheetName;
-    _opDraft.columns = columns.map(name => {
-      const auto = matchSourceField(name);
-      return { name, source: auto, fixed:'', auto };
-    });
-    document.getElementById('op-summary').textContent = profileSummary(_opDraft);
-    renderOpMapping();
-  } catch (e) {
-    showErr('output-profile', e.message || 'Could not read that sheet.');
+  if (!_opDraft || !_opDraft.sheetColumns) return;
+  const names = _opDraft.sheetColumns[sheetName];
+  const sel = document.getElementById('op-sheet');
+  if (!names || !names.length) {
+    showErr('output-profile', 'That sheet has no column names.');
+    if (sel) sel.value = _opDraft.sheetName || '';
+    return;
   }
+  clearErr('output-profile');
+  _opDraft.sheetName = sheetName;
+  _opDraft.columns = names.map(name => {
+    const auto = matchSourceField(name);
+    return { name, source: auto, fixed:'', auto };
+  });
+  document.getElementById('op-summary').textContent = profileSummary(_opDraft);
+  renderOpMapping();
 }
 
 // ── Generate + write a custom profile ─────────────────────────────────────────
+// Read a number that may use a comma decimal (1.234,56) or a dot decimal (1,234.56).
+// Used by custom profiles only; the built-in CH/DE formats keep fmtNumStr.
+function parseLocaleNumber(raw) {
+  if (raw === null || raw === undefined || raw === '') return '';
+  if (typeof raw === 'number') return isFinite(raw) ? raw : '';
+  let s = String(raw).trim().replace(/[\s\u00A0']/g, '');
+  if (!s) return '';
+  const hasComma = s.includes(',');
+  const hasDot = s.includes('.');
+  if (hasComma && hasDot) {
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+    else s = s.replace(/,/g, '');
+  } else if (hasComma) {
+    const parts = s.split(',');
+    s = parts.length > 2 ? parts.join('') : s.replace(',', '.');
+  } else if (hasDot && s.split('.').length > 2) {
+    s = s.replace(/\./g, '');
+  }
+  const n = Number(s);
+  return isNaN(n) || !isFinite(n) ? '' : n;
+}
 function formatSourceValue(source, raw) {
   if (raw === null || raw === undefined || raw === '') return '';
   if (source === 'Tarifnummer') return formatHsCode(String(raw).trim());
-  if (source === 'Ursprung') return sanitizeText(String(raw).trim()).toUpperCase();
-  if (source === 'Währung') return sanitizeText(String(raw).trim()).toUpperCase();
-  if (NUM_SOURCE_FIELDS.has(source)) return fmtNumStr(raw);
-  return sanitizeText(String(raw).trim());
+  if (NUM_SOURCE_FIELDS.has(source)) return parseLocaleNumber(raw);
+  return String(raw).trim();
 }
 async function doGenerateCustom(anzahl) {
   if (S.hsEnabled && (!S.hsDb || !S.hsBU)) {
@@ -6007,8 +6176,8 @@ function rowsFromGrid() {
     const source = cols[i] && cols[i].source;
     if (!NUM_SOURCE_FIELDS.has(source)) return v;
     if (v === '' || v == null) return '';
-    const n = parseFloat(String(v).replace(',', '.'));
-    return isNaN(n) ? v : n;
+    const n = parseLocaleNumber(v);
+    return n === '' ? v : n;
   }));
 }
 async function downloadCustomFromGrid() {
@@ -6047,8 +6216,8 @@ async function buildCustomXlsx(profile, rows) {
         cell.value = sv;
         if (sv.startsWith('0')) cell.quotePrefix = true;
       } else if (NUM_SOURCE_FIELDS.has(source)) {
-        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
-        cell.value = isNaN(n) ? String(v) : n;
+        const n = typeof v === 'number' ? v : parseLocaleNumber(v);
+        cell.value = n === '' ? String(v) : n;
       } else {
         cell.value = String(v);
       }
@@ -6081,19 +6250,41 @@ function buildCustomJson(profile, rows) {
     (profile.columns || []).forEach((c, i) => {
       const v = r[i];
       if (NUM_SOURCE_FIELDS.has(c.source) && v !== '' && v != null) {
-        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
-        o[c.name] = isNaN(n) ? String(v) : n;
+        const n = typeof v === 'number' ? v : parseLocaleNumber(v);
+        o[c.name] = n === '' ? String(v) : n;
       } else o[c.name] = v == null ? '' : String(v);
     });
     return o;
   });
-  const out = profile.jsonWrapper ? { [profile.jsonWrapper]: objs } : objs;
-  return JSON.stringify(out, null, 2);
+  return JSON.stringify(wrapJsonOutput(profile, objs), null, 2);
+}
+function wrapJsonOutput(profile, objs) {
+  const path = Array.isArray(profile.jsonPath) && profile.jsonPath.length
+    ? profile.jsonPath
+    : (profile.jsonWrapper ? [profile.jsonWrapper] : []);
+  if (!path.length) return objs;
+  const root = {};
+  let cur = root;
+  path.forEach((key, i) => {
+    if (i === path.length - 1) cur[key] = objs;
+    else { cur[key] = {}; cur = cur[key]; }
+  });
+  return root;
 }
 function safeXmlName(s) {
   let n = String(s || 'Field').replace(/[^A-Za-z0-9_.:-]/g, '_');
   if (!/^[A-Za-z_:]/.test(n)) n = '_' + n;
   return n || 'Field';
+}
+function uniqueXmlTags(names) {
+  const used = new Set();
+  return names.map(n => {
+    const base = safeXmlName(n);
+    let tag = base, i = 2;
+    while (used.has(tag)) { tag = base + '_' + i; i++; }
+    used.add(tag);
+    return tag;
+  });
 }
 function xmlEscape(s) {
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -6101,7 +6292,7 @@ function xmlEscape(s) {
 function buildCustomXml(profile, rows) {
   const root = safeXmlName(profile.rootTag || 'Export');
   const rowTag = safeXmlName(profile.rowTag || 'Row');
-  const tags = (profile.columns || []).map(c => safeXmlName(c.name));
+  const tags = uniqueXmlTags((profile.columns || []).map(c => c.name));
   const mode = profile.xmlMode || 'children';
   const body = rows.map(r => {
     if (mode === 'attrs') {
