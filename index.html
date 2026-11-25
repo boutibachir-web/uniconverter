@@ -249,6 +249,31 @@ body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'SF Pro T
 .cd-item:hover{background:var(--bg)}
 .cd-item.active{color:var(--blue);font-weight:700}
 #country-pill-wrap{position:relative}
+/* ─── CUSTOM OUTPUT PROFILES ─────────────────────────────────────────────── */
+.yp-block{margin-top:26px;padding-top:18px;border-top:1px solid var(--sep)}
+.yp-title{font-size:15px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+.yp-sub{font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.45}
+.yp-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.yp-list{display:flex;flex-direction:column;gap:6px}
+.yp-card{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--sep);border-radius:14px;padding:8px 8px 8px 12px}
+.yp-card.selected{border-color:var(--blue);background:#F0F6FF}
+.yp-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;cursor:pointer;background:none;border:none;font-family:inherit;text-align:left;padding:4px 0;color:inherit}
+.yp-name{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.yp-meta{font-size:11px;color:var(--muted);white-space:nowrap}
+.yp-iconbtn{background:none;border:none;font-family:inherit;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;padding:6px 8px;border-radius:8px}
+.yp-iconbtn:hover{color:var(--text);background:rgba(0,0,0,.05)}
+.yp-iconbtn.danger:hover{color:var(--red);background:rgba(255,59,48,.08)}
+.modal-profile{max-width:560px;max-height:88vh;overflow:auto}
+.op-sum{font-size:12px;color:var(--muted);margin-bottom:10px}
+.op-map-list{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow-y:auto;margin:4px 0 12px;padding-right:2px}
+.op-map-row{display:grid;grid-template-columns:minmax(0,1fr) 18px minmax(0,1.15fr);gap:8px;align-items:center;background:var(--bg);border-radius:12px;padding:8px 10px}
+.op-col-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-matched{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--green);margin-top:2px}
+.op-arrow{color:var(--light);text-align:center;font-size:14px}
+.op-select{width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid rgba(0,0,0,.11);background:#fff;font-family:inherit;font-size:13px;color:var(--text);outline:none}
+.op-select:focus{border-color:var(--blue)}
+.op-fixed{margin-top:6px;padding:8px 10px;font-size:13px}
+.target-cap{font-size:9px;color:var(--muted);max-width:96px;text-align:center;line-height:1.2;word-break:break-word}
 
 /* ── Edit phase ──────────────────────────────────────────────────────────── */
 #ph-edit { max-width:100%; }
@@ -433,6 +458,16 @@ body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'SF Pro T
   <div class="up-title">Choose output.</div>
   <div class="up-sub" style="margin-bottom:20px">Select the destination country / format.</div>
   <div class="country-grid" id="country-grid"></div>
+  <div class="yp-block">
+    <div class="yp-title">Your own formats</div>
+    <div class="yp-sub">Drop an example of the file you want to produce. The app reads its columns and saves a reusable output profile.</div>
+    <div class="yp-actions">
+      <button class="btn btn-dark btn-sm" type="button" data-action="open-output-profile">Create from a template</button>
+      <button class="btn btn-ghost btn-sm" type="button" data-action="import-output-profile">Import</button>
+    </div>
+    <div class="yp-list" id="custom-profile-list"></div>
+  </div>
+  <input type="file" id="op-import-input" accept=".json,application/json" style="display:none">
   <div class="err" id="err-country"></div>
 </div>
 
@@ -443,7 +478,7 @@ body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'SF Pro T
     <div>
       <div class="edit-title">Review &amp; edit output.</div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <div id="edit-shipref-wrap" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <label style="font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap">Kundenreferenz</label>
       <input id="edit-shipref" type="text" autocomplete="off" spellcheck="false"
         style="font-size:13px;font-weight:600;padding:5px 10px;border-radius:8px;border:1.5px solid #dde3ec;
@@ -601,6 +636,7 @@ body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'SF Pro T
 <div class="ph" id="ph-upload">
   <div class="up-title">Drop your file.</div>
   <div class="up-sub">CSV · XLS · XLSX</div>
+  <div id="upload-profile-hint" style="font-size:13px;font-weight:600;margin:-18px 0 22px"></div>
   <div class="dz" id="drop-zone">
     <div class="dz-icon"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
     <div class="dz-t">Drag here</div>
@@ -860,6 +896,42 @@ body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'SF Pro T
 
 <div id="tip"><div class="tip-h" id="tip-h"></div><div id="tip-b"></div></div>
 
+<!-- ═══ MODAL — create / edit an output profile from a template file ════════ -->
+<div class="modal-bd" id="modal-output-profile">
+  <div class="modal modal-profile">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="modal-title" style="margin:0" id="op-modal-title">New output profile</div>
+      <button class="modal-close" type="button" data-action="close-output-profile">×</button>
+    </div>
+    <div id="op-step-file">
+      <div class="modal-sub">Drop an example of the file you want to produce. Column names are read from the header row.</div>
+      <div class="hs-dz" id="op-dz">
+        <div class="hs-dz-icon">📄</div>
+        <div class="hs-dz-t">Drop a template</div>
+        <div class="hs-dz-s">CSV · XLS · XLSX · JSON · XML</div>
+      </div>
+      <input type="file" id="op-file-input" accept=".csv,.xls,.xlsx,.json,.xml" style="display:none">
+      <div class="err" id="err-output-profile-file"></div>
+    </div>
+    <div id="op-step-map" style="display:none">
+      <div class="modal-sub" style="margin-bottom:8px">Each column in the template is filled from one of the app’s fields. Names that match are already chosen.</div>
+      <div class="op-sum" id="op-summary"></div>
+      <div id="op-sheet-wrap" style="display:none;margin-bottom:10px">
+        <label class="blk-lbl" for="op-sheet">Sheet</label>
+        <select class="op-select" id="op-sheet"></select>
+      </div>
+      <label class="blk-lbl" for="op-name">Profile name</label>
+      <input class="inp" id="op-name" type="text" autocomplete="off" placeholder="e.g. Broker CSV" style="margin-bottom:12px">
+      <div class="op-map-list" id="op-map-list"></div>
+      <div class="err" id="err-output-profile"></div>
+      <div class="modal-actions" style="justify-content:space-between">
+        <button class="modal-skip" type="button" data-action="output-profile-back" style="padding-left:0">Back</button>
+        <button class="btn btn-dark" type="button" data-action="save-output-profile">Save profile</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ MODAL — BetrieblicheID (DE only) ═════════════════════════════════════ -->
 <div class="modal-bd" id="modal-betrieblicheid">
   <div class="modal">
@@ -1008,6 +1080,10 @@ function activeProfile() {
   return S.selectedProfile || OUTPUT_PROFILES.find(p => p.id === 'CH');
 }
 
+function isCustomProfile(p) {
+  return !!(p && p.custom);
+}
+
 // Get a per-profile settings object from state (merged with defaults)
 function profileSettings(id) {
   const saved = S.profileSettings[id] || {};
@@ -1075,9 +1151,12 @@ const SYNONYMS_DE = {
   'Warenbezeichnung': ['warenbezeichnung','description','bezeichnung','product name','goods description','article description','name','desc'],
 };
 
-// Returns the field list for the active output profile
+// Returns the field list for the active output profile.
+// Custom profiles (built from a template) only ask for the source fields they use.
 function activeFields() {
-  return (activeProfile().id === 'DE') ? FIELDS_DE : FIELDS;
+  const p = activeProfile();
+  if (isCustomProfile(p)) return customProfileFields(p);
+  return (p.id === 'DE') ? FIELDS_DE : FIELDS;
 }
 
 // Colours for the marble pool circles in the mapping UI
@@ -1631,8 +1710,22 @@ function goMapping() {
   assignColors(headers);
   const saved = bestProfile(headers);
   if (saved) { S.mapping = applyProfileData(saved.p.mapping, headers); goConfigure(true); return; }
-  S.mapping = {};
-  setMapSub('Tap a marble, then tap a target — or drag and drop.');
+  if (isCustomProfile(activeProfile())) {
+    if (!activeFields().length) {
+      document.getElementById('consignment-badge').classList.remove('visible');
+      document.getElementById('configure-back').textContent = '← Different files';
+      showPhase('configure');
+      return;
+    }
+    S.mapping = autoMapSourceFields(headers, activeFields());
+    const n = Object.keys(S.mapping).length;
+    setMapSub(n
+      ? `Matched ${n} column${n === 1 ? '' : 's'} for “${activeProfile().label}”. Adjust anything that looks wrong.`
+      : 'Tap a marble, then tap a target — or drag and drop.');
+  } else {
+    S.mapping = {};
+    setMapSub('Tap a marble, then tap a target — or drag and drop.');
+  }
   renderMappingUI();
   showPhase('mapping');
 }
@@ -1794,6 +1887,12 @@ function renderTargets() {
     sk.addEventListener('click', () => toggleSkip(f.k));
 
     wrap.appendChild(tgt);
+    if (isMapped && isCustomProfile(activeProfile())) {
+      const cap = document.createElement('div');
+      cap.className = 'target-cap';
+      cap.textContent = displayName;
+      wrap.appendChild(cap);
+    }
     wrap.appendChild(sk);
     pool.appendChild(wrap);
   });
@@ -2301,6 +2400,12 @@ function generate() {
   const anzahl = parseInt(document.getElementById('colli-input').value.trim(), 10);
   if (isNaN(anzahl) || anzahl < 0) { showErr('configure', 'Enter a valid Anzahl (≥ 0).'); return; }
 
+  // Custom output profiles skip the LINEDROP / DBH question chain and write the template.
+  if (isCustomProfile(activeProfile())) {
+    doGenerateCustom(anzahl);
+    return;
+  }
+
   const chain = cb => {
     const invSkipped = S.isConsignment
       ? false  // consignment: invoice ref comes from the file itself
@@ -2507,11 +2612,12 @@ async function doGenerateConsignment(anzahl) {
 // ─── DOWNLOAD (XLSX) BUTTON ───────────────────────────────────────────────────
 document.getElementById('dl-btn').addEventListener('click', () => {
   if (!S.generated.length) return;
-  const { name, buf } = S.generated[0];
-  const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const item = S.generated[0];
+  if (item.mime) { triggerDownload(item.name, item.payload != null ? item.payload : item.buf, item.mime); return; }
+  const blob = new Blob([item.buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = name; a.click();
+  a.href = url; a.download = item.name; a.click();
   URL.revokeObjectURL(url);
 });
 
@@ -3407,7 +3513,7 @@ function loadSavedProfile() {
   try {
     const id = localStorage.getItem(PROFILE_KEY);
     if (id) {
-      const p = OUTPUT_PROFILES.find(p => p.id === id);
+      const p = findOutputProfile(id);
       if (p && p.ready) { S.selectedProfile = p; return true; }
     }
   } catch {}
@@ -3423,7 +3529,7 @@ function renderCountryGrid(selectedId) {
   const grid = document.getElementById('country-grid');
   grid.innerHTML = OUTPUT_PROFILES.map(p => `
     <div class="country-card${!p.ready ? ' coming-soon' : ''}${p.id === selectedId ? ' selected' : ''}"
-         onclick="${p.ready ? `selectCountry('${p.id}')` : ''}">
+         ${p.ready ? `data-action="select-country" data-id="${x(p.id)}"` : ''}>
       <div class="cc-badge-code">${p.code}</div>
       <div class="cc-label">${p.label}</div>
       ${p.ready ? '' : '<div class="cc-badge soon">Coming soon</div>'}
@@ -3432,11 +3538,13 @@ function renderCountryGrid(selectedId) {
 
 // Called when user taps a country card
 async function selectCountry(id) {
-  const p = OUTPUT_PROFILES.find(p => p.id === id);
+  const p = findOutputProfile(id);
   if (!p || !p.ready) return;
   S.selectedProfile = p;
   saveProfile_country(id);
   updateCountryPill();
+  updateUploadHint();
+  renderCustomProfileList();
 
   // Reload the DB for the newly selected profile (silently)
   const url = activeDbUrl();
@@ -3463,11 +3571,12 @@ function updateCountryPill() {
 // Render the change-country dropdown
 function renderCountryDropdown() {
   const dd = document.getElementById('country-dropdown');
-  dd.innerHTML = OUTPUT_PROFILES.map(p => `
+  const items = [...OUTPUT_PROFILES, ...loadCustomProfiles().map(customToCard)];
+  dd.innerHTML = items.map(p => `
     <div class="cd-item${p.id === S.selectedProfile?.id ? ' active' : ''}${!p.ready ? '" style="opacity:.4;cursor:default' : ''}"
-         onclick="${p.ready ? `changeCountry('${p.id}')` : ''}">
-      <span style="font-weight:800;font-size:12px;letter-spacing:.04em;min-width:28px">${p.code}</span>
-      <span style="color:var(--muted);font-size:12px">${p.label}</span>
+         ${p.ready ? `data-action="change-country" data-id="${x(p.id)}"` : ''}>
+      <span style="font-weight:800;font-size:12px;letter-spacing:.04em;min-width:28px">${x(p.code)}</span>
+      <span style="color:var(--muted);font-size:12px">${x(p.label)}</span>
     </div>`).join('');
 }
 
@@ -3498,6 +3607,8 @@ window.addEventListener('load', () => {
   document.getElementById('ph-upload').classList.remove('active');
   document.getElementById('ph-country').classList.add('active');
   renderCountryGrid(S.selectedProfile?.id || null);
+  renderCustomProfileList();
+  updateUploadHint();
 });
 
 
@@ -3578,7 +3689,8 @@ async function handleFiles(files, autoGo) {
   const first = S._pendingFiles[0];
 
   // ── Consignment detection ────────────────────────────────────────────────
-  if (isConsignmentFile(first.name, first.arrayBuffer)) {
+  // Custom profiles always use the column-mapping path, even for a GoodsItems file.
+  if (!isCustomProfile(activeProfile()) && isConsignmentFile(first.name, first.arrayBuffer)) {
     S.isConsignment = true;
     S.files = S._pendingFiles.map(f => ({ name:f.name, arrayBuffer:f.arrayBuffer, ext:f.ext }));
     finishUploadConsignment(autoGo);
@@ -3976,6 +4088,7 @@ function showEditPhase(){
   requestAnimationFrame(()=>{
     try{
       GS.isDE    = S.generatedMode==='de';
+      GS.isCustom = S.generatedMode==='custom';
       GS.headers = S.generatedHeaders||[];
       GS.hsColIdx= findHsCol(GS.headers);
       GS.tnColIdx = findTnCol(GS.headers);
@@ -3996,7 +4109,9 @@ function showEditPhase(){
       ].filter(([ci]) => ci >= 0));
       GS.consolGroupActive = new Set(GS.consolGroupCols.keys());
       GS.consolSumActive   = new Set(GS.consolSumCols.keys());
-      GS.numCols = GS.isDE ? new Set([1,3,5,6,12]) : new Set([9,11,12,13]);
+      GS.numCols = GS.isCustom
+        ? new Set(S.generatedNumCols || [])
+        : (GS.isDE ? new Set([1,3,5,6,12]) : new Set([9,11,12,13]));
       GS.alwaysTotalCols=_findTotalCols(GS.headers);
       GS.sortCol=null; GS.sortDir='asc'; GS.selectedCol=null;
       GS.highlighted=new Set(); GS.selectedHs=null; GS.selectedTn='';
@@ -4005,7 +4120,7 @@ function showEditPhase(){
 
       GS.rowData=(S.generatedRows||[]).map((r,ri)=>({
         ri,
-        values:(GS.isDE?r:r.slice(1)).map(v=>v===null||v===undefined?'':String(v)),
+        values:(S.generatedMode==='ld'?r.slice(1):r).map(v=>v===null||v===undefined?'':String(v)),
         excluded:false,
         hsMatched: !!(S.generatedHsMatchedRows&&S.generatedHsMatchedRows.has(ri)),
         replaced:false,
@@ -4019,8 +4134,9 @@ function showEditPhase(){
       // Pre-fill Kundenreferenz field
       const _srEl=document.getElementById('edit-shipref');
       if(_srEl) _srEl.value=S.generatedShipRef||'';
-      // Auto-start guided tour on first visit
-      try{ if(!localStorage.getItem(TOUR_KEY)){ setTimeout(startTour,700); } }catch(e){}
+      syncEditChrome();
+      // Auto-start guided tour on first visit (built-in formats only — a new profile is self-explanatory)
+      try{ if(!GS.isCustom && !localStorage.getItem(TOUR_KEY)){ setTimeout(startTour,700); } }catch(e){}
     } catch(err){ showErr('edit','Grid error: '+err.message); }
   });
 }
@@ -4740,6 +4856,7 @@ document.getElementById('audit-hdr').addEventListener('click',()=>{
 
 // ── Download from grid (reads GS.rowData, preserves _hsMatched for XLSX) ──────
 async function downloadFromGrid(){
+  if(GS.isCustom){ await downloadCustomFromGrid(); return; }
   const isDE=GS.isDE;
   const toNum=v=>{const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?'':n;};
   const active=GS.rowData.filter(rd=>!rd.excluded);
@@ -4764,6 +4881,7 @@ async function downloadFromGrid(){
 
 // ── CSV export — same schema as XLSX output, CP1252 encoded ─────────────────
 async function downloadCSV(){
+  if(GS.isCustom){ await downloadCustomFromGrid(); return; }
   const isDE=GS.isDE;
   const toNum=v=>{const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?'':n;};
   const active=GS.rowData.filter(rd=>!rd.excluded);
@@ -5112,13 +5230,937 @@ document.getElementById('edit-dl-btn')?.addEventListener('click',async()=>{
   const btn=document.getElementById('edit-dl-btn'); btn.disabled=true; btn.textContent='Building…';
   try{await downloadFromGrid();}catch(e){showErr('edit','Download error: '+e.message);}
   btn.disabled=false;
-  btn.innerHTML='<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Download XLSX';
+  syncEditChrome();
 });
 document.getElementById('edit-csv-btn')?.addEventListener('click', downloadCSV);
 
 document.getElementById('edit-back-btn')?.addEventListener('click',()=>showPhase('configure'));
 // add-row handled inline in tbody
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CUSTOM OUTPUT PROFILES
+// A profile is another choice on "Choose output", like CH or DE.
+// It is created from an example file: each template column is filled from one
+// of the app's source fields (auto-matched by name). Profiles stay in
+// localStorage and can be exported / imported as a JSON file.
+// CH and DE keep their own extraction and workbooks.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const CUSTOM_PROFILES_KEY = 'ld_output_profiles_custom_v1';
+const PROFILE_FILE_KIND = 'uniconverter-output-profile';
+const FIXED_SOURCE = '__fixed__';
+
+// Stable catalog of fields the converter already knows how to read.
+// Custom profiles map template columns onto these — that is what makes a
+// profile reusable across different source files.
+const SOURCE_FIELDS = [
+  { k:'Tarifnummer', s:'HS code', syn:['tarifnummer','warennr','hs code','hs','commodity code','customs code','tariff','tariff number','zollnummer','cn code','taric','customs tariff'] },
+  { k:'Artikelnummer', s:'Article no.', syn:['artikelnummer','artikelnr','article number','article no','article','sku','item number','item no','product number','product no','art nr','art-nr'] },
+  { k:'Warenbeschreibung', s:'Description', syn:['warenbeschreibung','warenbezeichnung','description','goods description','article description','bezeichnung','product name','desc'] },
+  { k:'Ursprung', s:'Origin', syn:['ursprung','ursprungsland','country of origin','origin','coo','herkunft','herkunftsland','pays origine'] },
+  { k:'Rechnungsbetrag', s:'Amount', syn:['rechnungsbetrag','preis','price','total price','invoice amount','net amount','amount','value','betrag','customs value','net value'] },
+  { k:'Währung', s:'Currency', syn:['währung','waehrung','currency','currency code','curr','devise'] },
+  { k:'Rohmasse', s:'Gross weight', syn:['rohmasse','gross weight','gross mass','bruttogewicht','bruttomasse','poids brut'] },
+  { k:'Eigenmasse', s:'Net weight', syn:['eigenmasse','net weight','net mass','nettogewicht','nettomasse','poids net'] },
+  { k:'Menge', s:'Quantity', syn:['menge','quantity','qty','units','unit','supplementary units'] },
+  { k:'Invoice No', s:'Invoice no.', syn:['invoice no','invoice number','invoice','rechnungsnummer','inv no','rechnung nr'] },
+  { k:'PR', s:'Preference', syn:['pr','preference','präferenz','praeferenz','preferenz'] },
+  { k:'TN Schlüssel', s:'TN key', syn:['tn schlüssel','tn schluessel','tn key','tn code'] },
+  { k:'Stat.Zusatz', s:'Stat. quantity', syn:['stat zusatz','stat zusatzmenge','zusatzmenge','supplementary quantity','statistical quantity'] },
+  { k:'Anzahl', s:'Packages (Anzahl box)', syn:['anzahl','colli','packages','packs','packstueckanzahl','number of packages','parcel count'] },
+];
+const NUM_SOURCE_FIELDS = new Set(['Rechnungsbetrag','Rohmasse','Eigenmasse','Menge','Stat.Zusatz','Anzahl']);
+const TEXT_SOURCE_FIELDS = new Set(['Tarifnummer','Artikelnummer','Invoice No']);
+
+let _opDraft = null;
+
+function findOutputProfile(id) {
+  const builtin = OUTPUT_PROFILES.find(p => p.id === id);
+  if (builtin) return builtin;
+  const custom = loadCustomProfiles().find(p => p.id === id);
+  return custom ? customToCard(custom) : null;
+}
+
+function customToCard(p) {
+  const fmt = (p.format || 'file').toUpperCase();
+  return {
+    ...p,
+    custom: true,
+    ready: true,
+    code: fmt,
+    label: p.name,
+  };
+}
+
+function customProfileFields(p) {
+  const seen = new Set();
+  const out = [];
+  (p.columns || []).forEach(col => {
+    if (!col.source || col.source === FIXED_SOURCE || col.source === 'Anzahl') return;
+    if (seen.has(col.source)) return;
+    seen.add(col.source);
+    const def = SOURCE_FIELDS.find(f => f.k === col.source);
+    out.push({ k: col.source, req: true, s: def ? def.s : col.source });
+  });
+  return out;
+}
+
+function matchSourceField(columnName) {
+  const n = norm(columnName);
+  if (!n) return '';
+  for (const f of SOURCE_FIELDS) {
+    if (norm(f.k) === n || norm(f.s) === n) return f.k;
+    if ((f.syn || []).some(s => norm(s) === n)) return f.k;
+  }
+  return '';
+}
+
+function autoMapSourceFields(headers, fields) {
+  const mapping = {};
+  const used = new Set();
+  fields.forEach(f => {
+    let idx = -1;
+    headers.forEach((h, i) => {
+      if (used.has(i) || idx >= 0) return;
+      if (matchSourceField(h) === f.k || norm(h) === norm(f.k) || norm(h) === norm(f.s)) idx = i;
+    });
+    if (idx >= 0) {
+      used.add(idx);
+      mapping[f.k] = { colIndex: idx, confidence: 0.9, skipped: false };
+    }
+  });
+  return mapping;
+}
+
+function loadCustomProfiles() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CUSTOM_PROFILES_KEY) || '[]');
+    return Array.isArray(raw) ? raw.filter(p => p && p.id && p.name && Array.isArray(p.columns)) : [];
+  } catch { return []; }
+}
+function storeCustomProfiles(list) {
+  try { localStorage.setItem(CUSTOM_PROFILES_KEY, JSON.stringify(list)); } catch {}
+}
+
+function updateUploadHint() {
+  const el = document.getElementById('upload-profile-hint');
+  if (!el) return;
+  const p = S.selectedProfile;
+  el.textContent = p ? (p.custom ? `Output profile: ${p.label}` : `${p.code} · ${p.label}`) : '';
+}
+
+function renderCustomProfileList() {
+  const el = document.getElementById('custom-profile-list');
+  if (!el) return;
+  const list = loadCustomProfiles();
+  el.innerHTML = '';
+  list.forEach(p => {
+    const card = customToCard(p);
+    const row = document.createElement('div');
+    row.className = 'yp-card' + (S.selectedProfile && S.selectedProfile.id === p.id ? ' selected' : '');
+    const main = document.createElement('button');
+    main.type = 'button';
+    main.className = 'yp-main';
+    main.dataset.action = 'select-country';
+    main.dataset.id = p.id;
+    const badge = document.createElement('span');
+    badge.className = 'fext';
+    badge.textContent = card.code;
+    const name = document.createElement('span');
+    name.className = 'yp-name';
+    name.textContent = p.name;
+    const meta = document.createElement('span');
+    meta.className = 'yp-meta';
+    meta.textContent = `${p.columns.length} column${p.columns.length === 1 ? '' : 's'}`;
+    main.appendChild(badge);
+    main.appendChild(name);
+    main.appendChild(meta);
+    row.appendChild(main);
+    row.appendChild(profileIconBtn('Edit', 'edit-output-profile', p.id, false));
+    row.appendChild(profileIconBtn('Export', 'export-output-profile', p.id, false));
+    row.appendChild(profileIconBtn('Delete', 'delete-output-profile', p.id, true));
+    el.appendChild(row);
+  });
+}
+function profileIconBtn(label, action, id, danger) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'yp-iconbtn' + (danger ? ' danger' : '');
+  b.dataset.action = action;
+  b.dataset.id = id;
+  b.textContent = label;
+  return b;
+}
+
+function openNewOutputProfile() {
+  _opDraft = null;
+  const input = document.getElementById('op-file-input');
+  if (input) input.value = '';
+  document.getElementById('op-modal-title').textContent = 'New output profile';
+  clearErr('output-profile');
+  clearErr('output-profile-file');
+  showOpStepFile();
+  document.getElementById('modal-output-profile').classList.add('open');
+}
+function closeOutputProfileModal() {
+  document.getElementById('modal-output-profile').classList.remove('open');
+}
+function showOpStepFile() {
+  document.getElementById('op-step-file').style.display = '';
+  document.getElementById('op-step-map').style.display = 'none';
+}
+function showOpStepMap() {
+  document.getElementById('op-step-file').style.display = 'none';
+  document.getElementById('op-step-map').style.display = '';
+  const d = _opDraft || { columns: [] };
+  document.getElementById('op-modal-title').textContent = d.editingId ? 'Edit output profile' : 'New output profile';
+  const nameEl = document.getElementById('op-name');
+  if (!nameEl.value || !d.editingId) {
+    if (!d.editingId) nameEl.value = (d.fileName || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+  }
+  if (d.editingId && !nameEl.dataset.filled) {
+    const existing = loadCustomProfiles().find(p => p.id === d.editingId);
+    if (existing && !nameEl.value) nameEl.value = existing.name;
+  }
+  if (d.editingId) {
+    const existing = loadCustomProfiles().find(p => p.id === d.editingId);
+    if (existing) nameEl.value = nameEl.value || existing.name;
+  }
+  document.getElementById('op-summary').textContent = profileSummary(d);
+  const sheetWrap = document.getElementById('op-sheet-wrap');
+  const sheetSel = document.getElementById('op-sheet');
+  if (d.sheets && d.sheets.length > 1) {
+    sheetWrap.style.display = '';
+    sheetSel.innerHTML = '';
+    d.sheets.forEach(sn => {
+      const opt = document.createElement('option');
+      opt.value = sn;
+      opt.textContent = sn;
+      if (sn === d.sheetName) opt.selected = true;
+      sheetSel.appendChild(opt);
+    });
+  } else {
+    sheetWrap.style.display = 'none';
+  }
+  renderOpMapping();
+  clearErr('output-profile');
+}
+function profileSummary(d) {
+  const n = (d.columns || []).length;
+  const cols = `${n} ${n === 1 ? 'column' : 'columns'}`;
+  const fields = `${n} ${n === 1 ? 'field' : 'fields'}`;
+  if (d.format === 'csv') {
+    const sep = d.separator === '\t' ? 'tab' : (d.separator || ';');
+    return `${cols} · CSV · separator ${sep}`;
+  }
+  if (d.format === 'xlsx') return `${cols} · Excel${d.sheetName ? ' · ' + d.sheetName : ''}`;
+  if (d.format === 'json') return `${fields} · JSON`;
+  if (d.format === 'xml') return `${fields} · XML · <${d.rowTag || 'Row'}>`;
+  return cols;
+}
+function renderOpMapping() {
+  const list = document.getElementById('op-map-list');
+  list.innerHTML = '';
+  (_opDraft.columns || []).forEach((col, idx) => {
+    const row = document.createElement('div');
+    row.className = 'op-map-row';
+    const left = document.createElement('div');
+    const nm = document.createElement('div');
+    nm.className = 'op-col-name';
+    nm.textContent = col.name;
+    nm.title = col.name;
+    const badge = document.createElement('div');
+    badge.className = 'op-matched';
+    badge.textContent = 'matched';
+    left.appendChild(nm);
+    left.appendChild(badge);
+    const arrow = document.createElement('div');
+    arrow.className = 'op-arrow';
+    arrow.textContent = '→';
+    const right = document.createElement('div');
+    const sel = document.createElement('select');
+    sel.className = 'op-select';
+    sel.dataset.idx = String(idx);
+    addOpOption(sel, '', 'Leave empty');
+    addOpOption(sel, FIXED_SOURCE, 'Fixed value');
+    SOURCE_FIELDS.forEach(f => addOpOption(sel, f.k, f.s));
+    sel.value = col.source || '';
+    if (sel.value !== (col.source || '')) sel.value = '';
+    const fixed = document.createElement('input');
+    fixed.className = 'inp op-fixed';
+    fixed.placeholder = 'Same text on every row';
+    fixed.value = col.fixed || '';
+    fixed.style.display = sel.value === FIXED_SOURCE ? '' : 'none';
+    const syncBadge = () => {
+      badge.style.display = (col.auto && sel.value === col.auto) ? '' : 'none';
+    };
+    sel.addEventListener('change', () => {
+      col.source = sel.value;
+      fixed.style.display = sel.value === FIXED_SOURCE ? '' : 'none';
+      syncBadge();
+    });
+    fixed.addEventListener('input', () => { col.fixed = fixed.value; });
+    syncBadge();
+    right.appendChild(sel);
+    right.appendChild(fixed);
+    row.appendChild(left);
+    row.appendChild(arrow);
+    row.appendChild(right);
+    list.appendChild(row);
+  });
+}
+function addOpOption(sel, value, label) {
+  const opt = document.createElement('option');
+  opt.value = value;
+  opt.textContent = label;
+  sel.appendChild(opt);
+}
+
+function outputProfileBack() {
+  if (document.getElementById('op-step-map').style.display !== 'none') {
+    clearErr('output-profile');
+    showOpStepFile();
+    return;
+  }
+  closeOutputProfileModal();
+}
+
+function saveOutputProfileFromUI() {
+  clearErr('output-profile');
+  if (!_opDraft || !_opDraft.columns || !_opDraft.columns.length) {
+    showErr('output-profile', 'Drop a template first.');
+    return;
+  }
+  const name = document.getElementById('op-name').value.trim();
+  if (!name) { showErr('output-profile', 'Give this profile a name.'); return; }
+  const columns = _opDraft.columns.map(c => ({
+    name: c.name,
+    source: c.source || '',
+    fixed: c.source === FIXED_SOURCE ? (c.fixed || '') : '',
+  }));
+  if (!columns.some(c => c.source)) {
+    showErr('output-profile', 'Choose what fills at least one column.');
+    return;
+  }
+  const profile = {
+    id: _opDraft.editingId || ('c_' + Date.now().toString(36)),
+    name,
+    format: _opDraft.format,
+    separator: _opDraft.separator || ';',
+    sheetName: _opDraft.sheetName || '',
+    rootTag: _opDraft.rootTag || '',
+    rowTag: _opDraft.rowTag || '',
+    xmlMode: _opDraft.xmlMode || '',
+    jsonWrapper: _opDraft.jsonWrapper || '',
+    columns,
+    updatedAt: new Date().toISOString(),
+  };
+  const list = loadCustomProfiles().filter(p => p.id !== profile.id);
+  list.unshift(profile);
+  storeCustomProfiles(list);
+  closeOutputProfileModal();
+  renderCustomProfileList();
+  selectCountry(profile.id);
+}
+
+function editOutputProfile(id) {
+  const p = loadCustomProfiles().find(x => x.id === id);
+  if (!p) return;
+  _opDraft = {
+    editingId: p.id,
+    format: p.format,
+    separator: p.separator,
+    sheetName: p.sheetName,
+    sheets: [],
+    rootTag: p.rootTag,
+    rowTag: p.rowTag,
+    xmlMode: p.xmlMode,
+    jsonWrapper: p.jsonWrapper,
+    fileName: p.name,
+    columns: (p.columns || []).map(c => ({
+      name: c.name,
+      source: c.source || '',
+      fixed: c.fixed || '',
+      auto: matchSourceField(c.name),
+    })),
+  };
+  clearErr('output-profile');
+  clearErr('output-profile-file');
+  document.getElementById('op-name').value = p.name;
+  document.getElementById('modal-output-profile').classList.add('open');
+  showOpStepMap();
+}
+
+function deleteCustomProfile(id) {
+  const p = loadCustomProfiles().find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`Delete “${p.name}”? Files already exported are not affected.`)) return;
+  storeCustomProfiles(loadCustomProfiles().filter(x => x.id !== id));
+  if (S.selectedProfile && S.selectedProfile.id === id) {
+    S.selectedProfile = null;
+    try { localStorage.removeItem(PROFILE_KEY); } catch {}
+    updateCountryPill();
+    updateUploadHint();
+  }
+  renderCustomProfileList();
+  renderCountryGrid(S.selectedProfile && S.selectedProfile.id);
+}
+
+function exportCustomProfile(id) {
+  const p = loadCustomProfiles().find(x => x.id === id);
+  if (!p) return;
+  const file = {
+    kind: PROFILE_FILE_KIND,
+    version: 1,
+    name: p.name,
+    format: p.format,
+    separator: p.separator || ';',
+    sheetName: p.sheetName || '',
+    rootTag: p.rootTag || '',
+    rowTag: p.rowTag || '',
+    xmlMode: p.xmlMode || '',
+    jsonWrapper: p.jsonWrapper || '',
+    columns: p.columns,
+  };
+  triggerDownload(slug(p.name) + '.output-profile.json', JSON.stringify(file, null, 2), 'application/json');
+}
+
+function importOutputProfileFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(String(reader.result || ''));
+      const profile = profileFromFile(data);
+      const list = loadCustomProfiles();
+      list.unshift(profile);
+      storeCustomProfiles(list);
+      renderCustomProfileList();
+      clearErr('country');
+    } catch (e) {
+      showErr('country', e.message || 'This file is not an output profile.');
+    }
+  };
+  reader.onerror = () => showErr('country', 'Could not read that file.');
+  reader.readAsText(file);
+}
+function profileFromFile(data) {
+  if (!data || data.kind !== PROFILE_FILE_KIND || !Array.isArray(data.columns) || !data.columns.length) {
+    throw new Error('This file is not an output profile.');
+  }
+  const format = ['csv','xlsx','json','xml'].includes(data.format) ? data.format : '';
+  if (!format) throw new Error('This profile has no file format.');
+  const name = String(data.name || '').trim();
+  if (!name) throw new Error('This profile has no name.');
+  const known = new Set(SOURCE_FIELDS.map(f => f.k));
+  const columns = data.columns.map((c, i) => {
+    const colName = String(c && c.name || '').trim() || `Column ${i + 1}`;
+    let source = c && c.source ? String(c.source) : '';
+    if (source !== FIXED_SOURCE && source && !known.has(source)) source = '';
+    return { name: colName, source, fixed: source === FIXED_SOURCE ? String(c.fixed || '') : '' };
+  });
+  if (!columns.some(c => c.source)) throw new Error('This profile does not fill any column.');
+  return {
+    id: 'c_' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36),
+    name, format,
+    separator: data.separator || ';',
+    sheetName: data.sheetName || '',
+    rootTag: data.rootTag || '',
+    rowTag: data.rowTag || '',
+    xmlMode: data.xmlMode || '',
+    jsonWrapper: data.jsonWrapper || '',
+    columns,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function slug(s) {
+  return String(s || 'profile').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'profile';
+}
+function triggerDownload(filename, data, mime) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: mime || 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+// ── Read a template file into columns ─────────────────────────────────────────
+function uniqueColumnNames(names) {
+  const seen = new Map();
+  return names.map(n => {
+    const base = n || 'Column';
+    const c = (seen.get(base) || 0) + 1;
+    seen.set(base, c);
+    return c === 1 ? base : `${base} (${c})`;
+  });
+}
+function columnsFromMatrix(raw) {
+  if (!raw || !raw.length) throw new Error('This file looks empty.');
+  const wide = raw.some(r => (r || []).filter(c => c != null && String(c).trim() !== '').length >= 2);
+  const hi = wide ? detectHeaderRow(raw) : 0;
+  const hdr = raw[hi] || [];
+  let last = -1;
+  hdr.forEach((c, i) => { if (cleanHeaderName(c || '')) last = i; });
+  if (last < 0) throw new Error('No column names found. Put the headers in the first row.');
+  const names = [];
+  for (let i = 0; i <= last; i++) {
+    const h = cleanHeaderName(hdr[i] || '');
+    names.push(h || `Column ${i + 1}`);
+  }
+  return uniqueColumnNames(names);
+}
+function detectSeparator(text) {
+  const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim()).slice(0, 8);
+  const cands = [';', ',', '\t', '|'];
+  let best = ';', bestScore = -1;
+  cands.forEach(sep => {
+    const counts = lines.map(l => splitCsvLine(l, sep).length);
+    if (!counts.length || counts[0] < 2) return;
+    const same = counts.every(c => c === counts[0]);
+    const score = counts[0] + (same ? 20 : 0);
+    if (score > bestScore) { bestScore = score; best = sep; }
+  });
+  return best;
+}
+function splitCsvLine(line, sep) {
+  const out = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += c;
+    } else if (c === '"') inQ = true;
+    else if (c === sep) { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+function parseCsvMatrix(text, sep) {
+  const src = String(text || '').replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [], cur = '', inQ = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inQ) {
+      if (c === '"') { if (src[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += c;
+    } else if (c === '"') inQ = true;
+    else if (c === sep) { row.push(cur); cur = ''; }
+    else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+    else if (c !== '\r') cur += c;
+  }
+  if (cur.length || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+async function readTemplateFile(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (ext === 'json') return parseJsonTemplate(await file.text());
+  if (ext === 'xml') return parseXmlTemplate(await file.text());
+  if (ext === 'csv') {
+    const text = await file.text();
+    const separator = detectSeparator(text);
+    const columns = columnsFromMatrix(parseCsvMatrix(text, separator));
+    return { format: 'csv', separator, columns, sheetName: '', sheets: [] };
+  }
+  const ab = await file.arrayBuffer();
+  const wb = XLSX.read(ab, { type:'array', cellDates:false });
+  if (!wb.SheetNames.length) throw new Error('This workbook has no sheets.');
+  const sheetName = wb.SheetNames[0];
+  return {
+    format: 'xlsx',
+    separator: ';',
+    sheetName,
+    sheets: wb.SheetNames.slice(),
+    arrayBuffer: ab,
+    columns: columnsFromSheet(wb, sheetName),
+  };
+}
+function columnsFromSheet(wb, sheetName) {
+  const ws = wb.Sheets[sheetName] || wb.Sheets[wb.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+  return columnsFromMatrix(raw);
+}
+function parseJsonTemplate(text) {
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new Error('This JSON file could not be read.'); }
+  let rows = null, jsonWrapper = '';
+  if (Array.isArray(data)) rows = data;
+  else if (data && typeof data === 'object') {
+    const key = Object.keys(data).find(k => Array.isArray(data[k]) && data[k][0] && typeof data[k][0] === 'object');
+    if (key) { rows = data[key]; jsonWrapper = key; }
+    else rows = [data];
+  }
+  if (!rows || !rows.length || typeof rows[0] !== 'object' || Array.isArray(rows[0])) {
+    throw new Error('JSON template needs a list of objects, one object per output row.');
+  }
+  const columns = uniqueColumnNames(Object.keys(rows[0]).filter(Boolean));
+  if (!columns.length) throw new Error('No fields found in this JSON.');
+  return { format:'json', separator:';', columns, sheetName:'', sheets:[], jsonWrapper, rootTag:'', rowTag:'' };
+}
+function parseXmlTemplate(text) {
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (!doc || doc.getElementsByTagName('parsererror').length) throw new Error('This XML file could not be read.');
+  const root = doc.documentElement;
+  if (!root) throw new Error('This XML file could not be read.');
+  const all = [...doc.getElementsByTagName('*')];
+  const groups = new Map();
+  all.forEach(el => {
+    const tag = el.localName || el.nodeName;
+    if (!groups.has(tag)) groups.set(tag, []);
+    groups.get(tag).push(el);
+  });
+  let best = null;
+  for (const [tag, els] of groups) {
+    if (els.length === 1 && els[0] === root) continue;
+    const withChildren = els.filter(el => el.children && el.children.length);
+    const withAttrs = els.filter(el => el.attributes && el.attributes.length);
+    if (withChildren.length) {
+      const score = withChildren.length * 100 + withChildren[0].children.length;
+      if (!best || score > best.score) best = { tag, el: withChildren[0], score, mode:'children' };
+    } else if (withAttrs.length) {
+      const score = withAttrs.length * 10 + withAttrs[0].attributes.length;
+      if (!best || score > best.score) best = { tag, el: withAttrs[0], score, mode:'attrs' };
+    }
+  }
+  if (!best) throw new Error('No rows found in this XML. Use one element per line, with a tag per column.');
+  const names = best.mode === 'children'
+    ? [...best.el.children].map(c => c.localName || c.nodeName)
+    : [...best.el.attributes].map(a => a.name);
+  const columns = uniqueColumnNames(names.filter(Boolean));
+  if (!columns.length) throw new Error('No fields found in this XML.');
+  const parent = best.el.parentElement;
+  return {
+    format:'xml', separator:';', columns, sheetName:'', sheets:[],
+    rowTag: best.tag,
+    rootTag: parent ? (parent.localName || parent.nodeName) : (root.localName || root.nodeName),
+    xmlMode: best.mode,
+    jsonWrapper:'',
+  };
+}
+
+async function onTemplatePicked(file) {
+  clearErr('output-profile-file');
+  if (!file) return;
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!['csv','xls','xlsx','json','xml'].includes(ext)) {
+    showErr('output-profile-file', 'Use a CSV, Excel, JSON, or XML file.');
+    return;
+  }
+  try {
+    const keepId = _opDraft && _opDraft.editingId;
+    const keepName = document.getElementById('op-name').value;
+    const parsed = await readTemplateFile(file);
+    _opDraft = {
+      editingId: keepId || null,
+      ...parsed,
+      fileName: file.name,
+      columns: parsed.columns.map(name => {
+        const auto = matchSourceField(name);
+        return { name, source: auto, fixed:'', auto };
+      }),
+    };
+    if (!keepId) document.getElementById('op-name').value = '';
+    else document.getElementById('op-name').value = keepName;
+    showOpStepMap();
+  } catch (e) {
+    showErr('output-profile-file', e.message || 'Could not read this file.');
+  }
+}
+function reloadTemplateSheet(sheetName) {
+  if (!_opDraft || !_opDraft.arrayBuffer) return;
+  try {
+    const wb = XLSX.read(_opDraft.arrayBuffer, { type:'array', cellDates:false });
+    const columns = columnsFromSheet(wb, sheetName);
+    _opDraft.sheetName = sheetName;
+    _opDraft.columns = columns.map(name => {
+      const auto = matchSourceField(name);
+      return { name, source: auto, fixed:'', auto };
+    });
+    document.getElementById('op-summary').textContent = profileSummary(_opDraft);
+    renderOpMapping();
+  } catch (e) {
+    showErr('output-profile', e.message || 'Could not read that sheet.');
+  }
+}
+
+// ── Generate + write a custom profile ─────────────────────────────────────────
+function formatSourceValue(source, raw) {
+  if (raw === null || raw === undefined || raw === '') return '';
+  if (source === 'Tarifnummer') return formatHsCode(String(raw).trim());
+  if (source === 'Ursprung') return sanitizeText(String(raw).trim()).toUpperCase();
+  if (source === 'Währung') return sanitizeText(String(raw).trim()).toUpperCase();
+  if (NUM_SOURCE_FIELDS.has(source)) return fmtNumStr(raw);
+  return sanitizeText(String(raw).trim());
+}
+async function doGenerateCustom(anzahl) {
+  if (S.hsEnabled && (!S.hsDb || !S.hsBU)) {
+    openHsModal(() => doGenerateCustom(anzahl));
+    return;
+  }
+  const profile = activeProfile();
+  resetGenerated();
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="animation:spin .8s linear infinite;stroke:#fff;fill:none;stroke-width:2;width:13px;height:13px"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Generating…';
+  try {
+    const allRows = [];
+    const matched = [];
+    let shipRef = '';
+    S.files.forEach(f => {
+      (f.rows || []).forEach((row, ri) => {
+        const cache = {};
+        let hsMatched = false;
+        (profile.columns || []).forEach(col => {
+          if (!col.source || col.source === FIXED_SOURCE || col.source === 'Anzahl') return;
+          if (!Object.prototype.hasOwnProperty.call(cache, col.source)) {
+            cache[col.source] = formatSourceValue(col.source, getCell(row, col.source));
+          }
+        });
+        if (S.hsEnabled && S.hsDb && cache.Artikelnummer) {
+          const found = lookupHs(cache.Artikelnummer, cache.Warenbeschreibung || '');
+          if (found) {
+            if (Object.prototype.hasOwnProperty.call(cache, 'Tarifnummer') || (profile.columns || []).some(c => c.source === 'Tarifnummer')) {
+              cache.Tarifnummer = formatHsCode(found.hs);
+            }
+            if (found.tnKey && (Object.prototype.hasOwnProperty.call(cache, 'TN Schlüssel') || (profile.columns || []).some(c => c.source === 'TN Schlüssel'))) {
+              cache['TN Schlüssel'] = found.tnKey;
+            }
+            hsMatched = true;
+          }
+        }
+        if (!shipRef && cache['Invoice No']) shipRef = String(cache['Invoice No']);
+        const values = (profile.columns || []).map(col => {
+          if (!col.source) return '';
+          if (col.source === FIXED_SOURCE) return col.fixed || '';
+          if (col.source === 'Anzahl') return (anzahl === 0 || anzahl) ? anzahl : '';
+          return Object.prototype.hasOwnProperty.call(cache, col.source) ? cache[col.source] : '';
+        });
+        if (hsMatched) matched.push(allRows.length);
+        allRows.push(values);
+        void ri;
+      });
+    });
+    S.shipRef = shipRef || profile.label || '';
+    S.generatedShipRef = S.shipRef;
+    S.generatedRows = allRows.map(r => r.slice());
+    S.generatedHeaders = (profile.columns || []).map(c => c.name);
+    S.generatedMode = 'custom';
+    S.generatedNumCols = [];
+    (profile.columns || []).forEach((c, i) => { if (NUM_SOURCE_FIELDS.has(c.source)) S.generatedNumCols.push(i); });
+    S.generatedHsMatchedRows = new Set(matched);
+    let built = buildCustomPayload(profile, allRows);
+    if (built.bufPromise) built = { mime: built.mime, payload: await built.bufPromise };
+    const srcName = (S.files[0] && S.files[0].name) || 'export';
+    S.generated.push({ name: customDownloadName(profile, srcName), mime: built.mime, payload: built.payload, buf: built.payload });
+  } catch (err) {
+    showErr('configure', 'Error: ' + err.message);
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Generate';
+    return;
+  }
+  const headers = S.files[0]?.headers || [];
+  const ns = new Set(headers.map(norm));
+  const ps = loadProfiles();
+  const dup = ps.some(p => {
+    const ph = Object.values(p.mapping).filter(v => v !== '__SKIP__').map(norm);
+    return ph.filter(h => ns.has(h)).length / Math.max(ph.length, 1) > .92;
+  });
+  if (!dup && headers.length) saveProfile(`auto_${Date.now()}`);
+  document.getElementById('ref-badge').textContent = S.shipRef || profile.label;
+  document.getElementById('done-client').textContent = profile.label;
+  try { showEditPhase(); } catch (e) {
+    console.error('showEditPhase failed:', e);
+    showPhase('done');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Generate';
+}
+
+function customDownloadName(profile, sourceName) {
+  const base = String(sourceName || 'export').replace(/\.[^.]+$/, '');
+  const ext = { csv:'csv', xlsx:'xlsx', json:'json', xml:'xml' }[profile.format] || 'txt';
+  return `${base}_${slug(profile.name)}.${ext}`;
+}
+function buildCustomPayload(profile, rows) {
+  if (profile.format === 'xlsx') {
+    return { mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', payload: null, bufPromise: buildCustomXlsx(profile, rows) };
+  }
+  if (profile.format === 'json') {
+    return { mime:'application/json', payload: buildCustomJson(profile, rows) };
+  }
+  if (profile.format === 'xml') {
+    return { mime:'application/xml', payload: buildCustomXml(profile, rows) };
+  }
+  return { mime:'text/csv;charset=utf-8', payload: buildCustomCsv(profile, rows) };
+}
+function rowsFromGrid() {
+  const cols = (activeProfile().columns || []);
+  return GS.rowData.filter(rd => !rd.excluded).map(rd => rd.values.map((v, i) => {
+    const source = cols[i] && cols[i].source;
+    if (!NUM_SOURCE_FIELDS.has(source)) return v;
+    if (v === '' || v == null) return '';
+    const n = parseFloat(String(v).replace(',', '.'));
+    return isNaN(n) ? v : n;
+  }));
+}
+async function downloadCustomFromGrid() {
+  const profile = activeProfile();
+  if (!isCustomProfile(profile)) return;
+  const rows = rowsFromGrid();
+  const name = (S.generated[0] && S.generated[0].name) || customDownloadName(profile, 'export');
+  if (profile.format === 'xlsx') {
+    const buf = await buildCustomXlsx(profile, rows);
+    triggerDownload(name, buf, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    return;
+  }
+  let payload, mime;
+  if (profile.format === 'json') { payload = buildCustomJson(profile, rows); mime = 'application/json'; }
+  else if (profile.format === 'xml') { payload = buildCustomXml(profile, rows); mime = 'application/xml'; }
+  else { payload = buildCustomCsv(profile, rows); mime = 'text/csv;charset=utf-8'; }
+  triggerDownload(name, payload, mime);
+}
+async function buildCustomXlsx(profile, rows) {
+  const wb = new ExcelJS.Workbook();
+  const sheet = String(profile.sheetName || 'Export').replace(/[\\/?*[\]:]/g, ' ').trim().slice(0, 31) || 'Export';
+  const ws = wb.addWorksheet(sheet);
+  const header = (profile.columns || []).map(c => c.name);
+  const hRow = ws.addRow(header);
+  hRow.font = { bold:true };
+  hRow.eachCell(cell => { cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD9D9D9' } }; });
+  rows.forEach(vals => {
+    const exRow = ws.addRow(header.map(() => null));
+    vals.forEach((v, i) => {
+      const cell = exRow.getCell(i + 1);
+      const source = (profile.columns[i] || {}).source;
+      if (v === null || v === undefined || v === '') { cell.value = null; return; }
+      if (TEXT_SOURCE_FIELDS.has(source)) {
+        const sv = String(v);
+        cell.numFmt = '@';
+        cell.value = sv;
+        if (sv.startsWith('0')) cell.quotePrefix = true;
+      } else if (NUM_SOURCE_FIELDS.has(source)) {
+        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
+        cell.value = isNaN(n) ? String(v) : n;
+      } else {
+        cell.value = String(v);
+      }
+    });
+  });
+  ws.columns.forEach((col, i) => {
+    let ml = (header[i] || '').length;
+    rows.slice(0, 500).forEach(r => {
+      const v = r[i];
+      if (v != null && v !== '') ml = Math.max(ml, String(v).length);
+    });
+    col.width = Math.min(Math.max(ml + 2, 8), 50);
+  });
+  return wb.xlsx.writeBuffer();
+}
+function buildCustomCsv(profile, rows) {
+  const sep = profile.separator || ';';
+  const esc = v => {
+    const s = v == null ? '' : String(v);
+    if (s.includes(sep) || s.includes('"') || s.includes('\n') || s.includes('\r')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
+  const lines = [(profile.columns || []).map(c => esc(c.name)).join(sep)];
+  rows.forEach(r => lines.push((profile.columns || []).map((_, i) => esc(r[i])).join(sep)));
+  return '\uFEFF' + lines.join('\r\n');
+}
+function buildCustomJson(profile, rows) {
+  const objs = rows.map(r => {
+    const o = {};
+    (profile.columns || []).forEach((c, i) => {
+      const v = r[i];
+      if (NUM_SOURCE_FIELDS.has(c.source) && v !== '' && v != null) {
+        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
+        o[c.name] = isNaN(n) ? String(v) : n;
+      } else o[c.name] = v == null ? '' : String(v);
+    });
+    return o;
+  });
+  const out = profile.jsonWrapper ? { [profile.jsonWrapper]: objs } : objs;
+  return JSON.stringify(out, null, 2);
+}
+function safeXmlName(s) {
+  let n = String(s || 'Field').replace(/[^A-Za-z0-9_.:-]/g, '_');
+  if (!/^[A-Za-z_:]/.test(n)) n = '_' + n;
+  return n || 'Field';
+}
+function xmlEscape(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function buildCustomXml(profile, rows) {
+  const root = safeXmlName(profile.rootTag || 'Export');
+  const rowTag = safeXmlName(profile.rowTag || 'Row');
+  const tags = (profile.columns || []).map(c => safeXmlName(c.name));
+  const mode = profile.xmlMode || 'children';
+  const body = rows.map(r => {
+    if (mode === 'attrs') {
+      const attrs = tags.map((t, i) => `${t}="${xmlEscape(r[i])}"`).join(' ');
+      return `  <${rowTag} ${attrs}/>`;
+    }
+    const kids = tags.map((t, i) => `    <${t}>${xmlEscape(r[i])}</${t}>`).join('\n');
+    return `  <${rowTag}>\n${kids}\n  </${rowTag}>`;
+  }).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<${root}>\n${body}\n</${root}>\n`;
+}
+
+function syncEditChrome() {
+  const custom = S.generatedMode === 'custom';
+  const dl = document.getElementById('edit-dl-btn');
+  const csv = document.getElementById('edit-csv-btn');
+  const consol = document.getElementById('consol-btn');
+  const ship = document.getElementById('edit-shipref-wrap');
+  if (ship) ship.style.display = custom ? 'none' : 'flex';
+  if (consol) consol.style.display = custom ? 'none' : '';
+  if (csv) csv.style.display = custom ? 'none' : '';
+  if (!dl) return;
+  const label = custom ? ('Download ' + String((activeProfile().format || 'file')).toUpperCase()) : 'Download XLSX';
+  dl.innerHTML = '<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> ' + label;
+}
+
+// Wire the template drop zone once the DOM nodes exist (they do — script is at the end).
+(function wireOutputProfileUi() {
+  const dz = document.getElementById('op-dz');
+  const input = document.getElementById('op-file-input');
+  if (dz && input) {
+    dz.addEventListener('click', () => input.click());
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('over');
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) onTemplatePicked(f);
+    });
+    input.addEventListener('change', () => {
+      const f = input.files && input.files[0];
+      if (f) onTemplatePicked(f);
+      input.value = '';
+    });
+  }
+  const sheet = document.getElementById('op-sheet');
+  if (sheet) sheet.addEventListener('change', () => reloadTemplateSheet(sheet.value));
+  const name = document.getElementById('op-name');
+  if (name) name.addEventListener('keydown', e => { if (e.key === 'Enter') saveOutputProfileFromUI(); });
+  const modal = document.getElementById('modal-output-profile');
+  if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeOutputProfileModal(); });
+  const imp = document.getElementById('op-import-input');
+  if (imp) imp.addEventListener('change', () => {
+    const f = imp.files && imp.files[0];
+    if (f) importOutputProfileFile(f);
+    imp.value = '';
+  });
+})();
 
 // ── data-action dispatcher ────────────────────────────────────────────────────
 // Single delegated click listener — replaces all inline onclick= attributes.
@@ -5150,12 +6192,22 @@ document.getElementById('edit-back-btn')?.addEventListener('click',()=>showPhase
     'skip-betrieblicheid':   () => submitBetrieblicheID(true),
     'clear-url':             () => clearProfileUrl(),
     'toggle-country':        () => toggleCountryDropdown(),
+    'select-country':        (el) => selectCountry(el.dataset.id),
+    'change-country':        (el) => changeCountry(el.dataset.id),
+    'open-output-profile':   () => openNewOutputProfile(),
+    'close-output-profile':  () => closeOutputProfileModal(),
+    'output-profile-back':   () => outputProfileBack(),
+    'save-output-profile':   () => saveOutputProfileFromUI(),
+    'edit-output-profile':   (el) => editOutputProfile(el.dataset.id),
+    'export-output-profile': (el) => exportCustomProfile(el.dataset.id),
+    'delete-output-profile': (el) => deleteCustomProfile(el.dataset.id),
+    'import-output-profile': () => document.getElementById('op-import-input').click(),
   };
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const act = el.dataset.action;
-    if (ACTIONS[act]) { e.stopPropagation(); ACTIONS[act](); }
+    if (ACTIONS[act]) { e.stopPropagation(); ACTIONS[act](el); }
   });
 })();
 </script>
