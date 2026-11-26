@@ -1,0 +1,4 @@
+# UI strings already in index.html that the English check matches.
+# Delete a line in the same change that removes that string from the UI.
+# See scripts/check-english.mjs for what counts as French.
+Référence expédition
